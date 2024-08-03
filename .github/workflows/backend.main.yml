@@ -1,0 +1,42 @@
+name: Deploy ARM Template
+
+on: [push]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Checkout GitHub Action"
+        uses: actions/checkout@v2
+
+      - name: "Login via Azure CLI"
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: "Deploy ARM template"
+        uses: azure/ARM-deploy@v1
+        with:
+          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          resourceGroupName: "resumechallenge59939"
+          template: "./backend/backend-arm.json"
+          parameters: "./backend/parameters.json"
+
+      - name: "Deploy Azure Function"
+        uses: azure/functions-action@v1
+        with:
+          app-name: "resumefunction59939new"
+          package: "./backend/resume-function"
+          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+          # Set environment variables
+        env:
+          COSMOS_DB_ENDPOINT: ${{ secrets.COSMOS_DB_ENDPOINT }}
+          COSMOS_DB_KEY: ${{ secrets.COSMOS_DB_KEY }}
+
+      - name: "Set Function App Settings"
+        run: |
+          az functionapp config appsettings set --name resumefunction59939new --resource-group resumechallenge59939 --settings COSMOS_DB_ENDPOINT=${{ secrets.COSMOS_DB_ENDPOINT }} COSMOS_DB_KEY=${{ secrets.COSMOS_DB_KEY }}
+
+      - name: "Logout"
+        run: az logout
